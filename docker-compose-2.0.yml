@@ -1,0 +1,60 @@
+version: '3.9'
+
+services:
+  db-2.0:
+    image: postgres:16
+    container_name: flectra-db-2.0
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: flectra
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+      POSTGRES_DB: postgres
+    volumes:
+      - "${MY_DOCKER_DATA_PATH:-~/mydata}/flectra-2.0/postgresql:/var/lib/postgresql/data"
+    networks:
+      - traefik-net
+
+  flectra-2.0:
+    image: flectrahq/flectra:2.0
+    user: flectra
+    container_name: flectra-2.0
+    restart: unless-stopped
+    depends_on:
+      - db-2.0
+    tty: true
+    command: -d flectra -i base --stop-after-init  # Uncommented for initial DB setup; comment out after first run
+    environment:
+      - HOST=db-2.0
+      - USER=flectra
+      - PASSWORD=${DB_PASSWORD}
+    volumes:
+      - "${MY_DOCKER_DATA_PATH:-~/mydata}/flectra-2.0/etc/config:/var/lib/flectra:rw"
+      - "${MY_DOCKER_DATA_PATH:-~/mydata}/flectra-2.0/etc/addons:/mnt/extra-addons:ro"
+      - "${MY_DOCKER_DATA_PATH:-~/mydata}/flectra-2.0/etc/logs:/var/log/flectra:rw"
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.flectra-2.0.rule=Host(`finance2.bergsoemetals.com`)
+      - traefik.http.routers.flectra-2.0.entrypoints=websecure
+      - traefik.http.routers.flectra-2.0.tls=true
+      - traefik.http.routers.flectra-2.0.tls.certresolver=default-resolver
+      - traefik.http.routers.flectra-2.0.service=flectra-2.0
+      - traefik.http.services.flectra-2.0.loadbalancer.server.port=7073
+      - traefik.http.middlewares.flectra-headers.headers.contentSecurityPolicy=upgrade-insecure-requests
+      - traefik.http.middlewares.compress.compress=true
+      - traefik.http.routers.flectra-2.0.middlewares=flectra-headers,compress
+      - traefik.http.routers.flectra_lp-2.0.rule=Host(`flectra2.bergsoemetals.com`) && PathPrefix(`/longpolling/`)
+      - traefik.http.routers.flectra_lp-2.0.entrypoints=websecure
+      - traefik.http.routers.flectra_lp-2.0.tls=true
+      - traefik.http.routers.flectra_lp-2.0.tls.certresolver=default-resolver
+      - traefik.http.routers.flectra_lp-2.0.service=flectra_lp-2.0
+      - traefik.http.services.flectra_lp-2.0.loadbalancer.server.port=7072
+      - traefik.http.routers.flectra_lp-2.0.middlewares=flectra-headers,compress
+    ports:
+      - 8002:7073  # Expose locally for dev if needed (different from original)
+      - 8003:7072  # If longpolling is configured (different from original)
+    networks:
+      - traefik-net
+
+networks:
+  traefik-net:
+    external: true
