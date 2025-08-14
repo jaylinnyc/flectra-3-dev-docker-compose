@@ -55,7 +55,7 @@ services:
       - traefik.http.routers.flectra.tls.certresolver=default-resolver
       - traefik.http.routers.flectra.service=flectra
       - traefik.http.services.flectra.loadbalancer.server.port=7073
-      - traefik.http.routers.flectra_lp.rule=Host(`flectra.bergsoemetals.com`) && PathPrefix(`/longpolling/`)
+      - traefik.http.routers.flectra_lp.rule=Host(`finance.bergsoemetals.com`) && PathPrefix(`/longpolling/`)
       - traefik.http.routers.flectra_lp.entrypoints=websecure
       - traefik.http.routers.flectra_lp.tls=true
       - traefik.http.routers.flectra_lp.tls.certresolver=default-resolver
