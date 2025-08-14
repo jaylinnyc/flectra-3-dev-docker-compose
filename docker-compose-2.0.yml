@@ -16,13 +16,14 @@ services:
 
   flectra-2.0:
     image: flectrahq/flectra:2.0
+    platform: linux/amd64
     user: flectra
     container_name: flectra-2.0
     restart: unless-stopped
     depends_on:
       - db-2.0
     tty: true
-    command: -d flectra -i base --stop-after-init  # Uncommented for initial DB setup; comment out after first run
+    # command: -d flectra -i base --stop-after-init  # Comment out after initial setup
     environment:
       - HOST=db-2.0
       - USER=flectra
@@ -50,8 +51,8 @@ services:
       - traefik.http.services.flectra_lp-2.0.loadbalancer.server.port=7072
       - traefik.http.routers.flectra_lp-2.0.middlewares=flectra-headers,compress
     ports:
-      - 8002:7073  # Expose locally for dev if needed (different from original)
-      - 8003:7072  # If longpolling is configured (different from original)
+      - 8002:7073  # Different local port to avoid conflict
+      - 8003:7072  # Different local port to avoid conflict
     networks:
       - traefik-net
 
