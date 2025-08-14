@@ -15,58 +15,6 @@ services:
     networks:
       - traefik-net
 
-  db:
-    image: postgres:16
-    container_name: flectra-db
-    restart: unless-stopped
-    environment:
-      POSTGRES_USER: flectra
-      POSTGRES_PASSWORD: ${DB_PASSWORD}
-      POSTGRES_DB: postgres
-    volumes:
-      - "${MY_DOCKER_DATA_PATH:-~/mydata}/flectra/postgresql:/var/lib/postgresql/data"
-    networks:
-      - traefik-net
-
-  flectra:
-    image: flectrahq/flectra:3.0
-    platform: linux/amd64
-    user: flectra
-    container_name: flectra
-    restart: unless-stopped
-    depends_on:
-      - db
-    tty: true
-    command: --
-    environment:
-      - HOST=db
-      - USER=flectra
-      - PASSWORD=${DB_PASSWORD}
-    volumes:
-      - "${MY_DOCKER_DATA_PATH:-~/mydata}/flectra/etc/config:/var/lib/flectra:rw"
-      - "${MY_DOCKER_DATA_PATH:-~/mydata}/flectra/etc/addons:/mnt/extra-addons:ro"
-      - "${MY_DOCKER_DATA_PATH:-~/mydata}/flectra/etc/logs:/var/log/flectra:rw"
-    labels:
-      - traefik.enable=true
-      - traefik.docker.network=traefik-net  # Explicit like sample
-      - traefik.http.routers.flectra.rule=Host(`finance.bergsoemetals.com`)
-      - traefik.http.routers.flectra.entrypoints=websecure
-      - traefik.http.routers.flectra.tls=true
-      - traefik.http.routers.flectra.tls.certresolver=default-resolver
-      - traefik.http.routers.flectra.service=flectra
-      - traefik.http.services.flectra.loadbalancer.server.port=7073
-      - traefik.http.routers.flectra_lp.rule=Host(`flectra.bergsoemetals.com`) && PathPrefix(`/longpolling/`)
-      - traefik.http.routers.flectra_lp.entrypoints=websecure
-      - traefik.http.routers.flectra_lp.tls=true
-      - traefik.http.routers.flectra_lp.tls.certresolver=default-resolver
-      - traefik.http.routers.flectra_lp.service=flectra_lp
-      - traefik.http.services.flectra_lp.loadbalancer.server.port=7072
-    ports:
-      - 8000:7073
-      - 8001:7072
-    networks:
-      - traefik-net
-
   db-2.0:
     image: postgres:16
     container_name: flectra-db-2.0
@@ -89,7 +37,7 @@ services:
     depends_on:
       - db-2.0
     tty: true
-    command: flectra --http-port=7073 --longpolling-port=7072  # Matches labels; add -d flectra -i base --stop-after-init for first run
+    command: flectra --http-port=7073 --longpolling-port=7072  # Explicitly set ports to match labels
     environment:
       - HOST=db-2.0
       - USER=flectra
@@ -100,22 +48,22 @@ services:
       - "${MY_DOCKER_DATA_PATH:-~/mydata}/flectra-2.0/etc/logs:/var/log/flectra:rw"
     labels:
       - traefik.enable=true
-      - traefik.docker.network=traefik-net  # Explicit network for discovery, like your sample
-      - traefik.http.routers.flectra-2.0.rule=Host(`finance2.bergsoemetals.com`)
-      - traefik.http.routers.flectra-2.0.entrypoints=websecure
-      - traefik.http.routers.flectra-2.0.tls=true
-      - traefik.http.routers.flectra-2.0.tls.certresolver=default-resolver
-      - traefik.http.routers.flectra-2.0.service=flectra-2.0
-      - traefik.http.services.flectra-2.0.loadbalancer.server.port=7073
-      - traefik.http.routers.flectra_lp-2.0.rule=Host(`flectra2.bergsoemetals.com`) && PathPrefix(`/longpolling/`)
-      - traefik.http.routers.flectra_lp-2.0.entrypoints=websecure
-      - traefik.http.routers.flectra_lp-2.0.tls=true
-      - traefik.http.routers.flectra_lp-2.0.tls.certresolver=default-resolver
-      - traefik.http.routers.flectra_lp-2.0.service=flectra_lp-2.0
-      - traefik.http.services.flectra_lp-2.0.loadbalancer.server.port=7072
+      - traefik.docker.network=traefik-net
+      - traefik.http.routers.flectra.rule=Host(`finance.bergsoemetals.com`)
+      - traefik.http.routers.flectra.entrypoints=websecure
+      - traefik.http.routers.flectra.tls=true
+      - traefik.http.routers.flectra.tls.certresolver=default-resolver
+      - traefik.http.routers.flectra.service=flectra
+      - traefik.http.services.flectra.loadbalancer.server.port=7073
+      - traefik.http.routers.flectra_lp.rule=Host(`flectra.bergsoemetals.com`) && PathPrefix(`/longpolling/`)
+      - traefik.http.routers.flectra_lp.entrypoints=websecure
+      - traefik.http.routers.flectra_lp.tls=true
+      - traefik.http.routers.flectra_lp.tls.certresolver=default-resolver
+      - traefik.http.routers.flectra_lp.service=flectra_lp
+      - traefik.http.services.flectra_lp.loadbalancer.server.port=7072
     ports:
-      - 8002:7073
-      - 8003:7072
+      - 8002:7073  # Different local port to avoid conflict
+      - 8003:7072  # Different local port to avoid conflict
     networks:
       - traefik-net
 
