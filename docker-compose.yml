@@ -89,7 +89,7 @@ services:
     depends_on:
       - db-2.0
     tty: true
-    command: flectra --http-port=7073 --longpolling-port=7072
+    command: flectra --http-port=7073 --longpolling-port=7072  # Matches labels; add -d flectra -i base --stop-after-init for first run
     environment:
       - HOST=db-2.0
       - USER=flectra
@@ -100,7 +100,7 @@ services:
       - "${MY_DOCKER_DATA_PATH:-~/mydata}/flectra-2.0/etc/logs:/var/log/flectra:rw"
     labels:
       - traefik.enable=true
-      - traefik.docker.network=traefik-net  # Explicit like sample
+      - traefik.docker.network=traefik-net  # Explicit network for discovery, like your sample
       - traefik.http.routers.flectra-2.0.rule=Host(`finance2.bergsoemetals.com`)
       - traefik.http.routers.flectra-2.0.entrypoints=websecure
       - traefik.http.routers.flectra-2.0.tls=true
