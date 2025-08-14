@@ -62,6 +62,7 @@ services:
 
   flectra:
     image: flectrahq/flectra:3.0
+    platform: linux/amd64
     user: flectra
     container_name: flectra
     restart: unless-stopped
