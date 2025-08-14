@@ -1,39 +1,6 @@
 version: '3.9'
 
 services:
-  traefik:
-    image: traefik:v3.1
-    container_name: traefik
-    restart: unless-stopped
-    command:
-      - --providers.docker=true
-      - --providers.docker.exposedbydefault=false
-      - --providers.docker.watch=true
-      - --providers.docker.network=traefik-net
-      - --entrypoints.web.address=:80
-      - --entrypoints.websecure.address=:443
-      - --entrypoints.web.http.redirections.entryPoint.to=websecure
-      - --entrypoints.web.http.redirections.entryPoint.scheme=https
-      - --entrypoints.web.http.redirections.entrypoint.permanent=true
-      - --certificatesresolvers.default-resolver.acme.httpchallenge=true
-      - --certificatesresolvers.default-resolver.acme.httpchallenge.entrypoint=web
-      - --certificatesresolvers.default-resolver.acme.email=info@bergsoemetals.com
-      - --certificatesresolvers.default-resolver.acme.storage=/letsencrypt/acme.json
-      - --api.dashboard=true
-      - --api.insecure=true
-      - --accesslog=true
-      - --accesslog.filepath=/logs/access.log
-    ports:
-      - 80:80
-      - 443:443
-      - 8080:8080  # Traefik dashboard (consider securing for full production)
-    volumes:
-      - "${MY_DOCKER_DATA_PATH:-~/mydata}/traefik/letsencrypt:/letsencrypt"
-      - "${MY_DOCKER_DATA_PATH:-~/mydata}/traefik/logs:/logs"
-      - /var/run/docker.sock:/var/run/docker.sock:ro
-    networks:
-      - traefik-net
-
   dozzle:
     image: amir20/dozzle:latest
     restart: unless-stopped
@@ -162,4 +129,4 @@ services:
 
 networks:
   traefik-net:
-    driver: bridge
+    external: true
