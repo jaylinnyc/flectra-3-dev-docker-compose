@@ -1,50 +1,108 @@
-version: '3.8'
+version: '3.9'
 
 services:
+  traefik:
+    image: traefik:v3.1
+    container_name: traefik
+    restart: unless-stopped
+    command:
+      - --providers.docker=true
+      - --providers.docker.exposedbydefault=false
+      - --providers.docker.watch=true
+      - --entrypoints.web.address=:80
+      - --entrypoints.websecure.address=:443
+      - --entrypoints.web.http.redirections.entryPoint.to=websecure
+      - --entrypoints.web.http.redirections.entryPoint.scheme=https
+      - --entrypoints.web.http.redirections.entrypoint.permanent=true
+      - --certificatesresolvers.default-resolver.acme.httpchallenge=true
+      - --certificatesresolvers.default-resolver.acme.httpchallenge.entrypoint=web
+      - --certificatesresolvers.default-resolver.acme.email=info@bergsoemetals.com
+      - --certificatesresolvers.default-resolver.acme.storage=/letsencrypt/acme.json
+      - --api.dashboard=true
+      - --api.insecure=true
+      - --accesslog=true
+      - --accesslog.filepath=/logs/access.log
+    ports:
+      - 80:80
+      - 443:443
+      - 8080:8080  # Traefik dashboard (consider securing for full production)
+    volumes:
+      - "${MY_DOCKER_DATA_PATH:-~/mydata}/traefik/letsencrypt:/letsencrypt"
+      - "${MY_DOCKER_DATA_PATH:-~/mydata}/traefik/logs:/logs"
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    networks:
+      - traefik-net
+
   dozzle:
     image: amir20/dozzle:latest
-    restart: always             # run as a service    
+    restart: unless-stopped
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock:ro
-      - ./auth/data:/data
+      - "${MY_DOCKER_DATA_PATH:-~/mydata}/dozzle/auth/data:/data"
     ports:
       - 8888:8080
     environment:
-      DOZZLE_ENABLE_ACTIONS: true      
- #     DOZZLE_AUTH_PROVIDER: simple
+      DOZZLE_ENABLE_ACTIONS: true
       DOZZLE_NO_ANALYTICS: 1
-      
+    networks:
+      - traefik-net
+
   db:
     image: postgres:16
-    restart: always             # run as a service    
+    container_name: flectra-db
+    restart: unless-stopped
     environment:
       POSTGRES_USER: flectra
-      POSTGRES_PASSWORD: password
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
       POSTGRES_DB: postgres
     volumes:
-        - ./postgresql:/var/lib/postgresql/data
-    
+      - "${MY_DOCKER_DATA_PATH:-~/mydata}/flectra/postgresql:/var/lib/postgresql/data"
+    networks:
+      - traefik-net
+
   flectra:
     image: flectrahq/flectra:3.0
     user: flectra
-    restart: always             # run as a service 
-    ports:
-      - 10020:7073
-      - 20020:7072 # live chat
+    container_name: flectra
+    restart: unless-stopped
+    depends_on:
+      - db
     tty: true
     command: --
     environment:
       - HOST=db
       - USER=flectra
-      - PASSWORD=password
+      - PASSWORD=${DB_PASSWORD}
     volumes:
-      # - ./etc/timezone:/etc/timezone:ro
-      # - ./etc/localtime:/etc/localtime:ro
-      - ./etc/config:/var/lib/flectra:rw
-      - ./etc/addons:/mnt/extra-addons:ro
-      - ./etc/logs:/var/log/flectra:rw
-      # - ./etc/geoip-db:/usr/share/GeoIP:ro
-      # - ./entrypoint.sh:/entrypoint.sh   # if you want to install additional Python packages, uncomment this line!
-    depends_on:
-      - db
-    
+      - "${MY_DOCKER_DATA_PATH:-~/mydata}/flectra/etc/config:/var/lib/flectra:rw"
+      - "${MY_DOCKER_DATA_PATH:-~/mydata}/flectra/etc/addons:/mnt/extra-addons:ro"
+      - "${MY_DOCKER_DATA_PATH:-~/mydata}/flectra/etc/logs:/var/log/flectra:rw"
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.flectra.rule=Host(`finance.bergsoemetals.com`)
+      - traefik.http.routers.flectra.entrypoints=websecure
+      - traefik.http.routers.flectra.tls=true
+      - traefik.http.routers.flectra.tls.certresolver=default-resolver
+      - traefik.http.routers.flectra.service=flectra
+      - traefik.http.services.flectra.loadbalancer.server.port=7073
+      - traefik.http.middlewares.flectra-headers.headers.contentSecurityPolicy=upgrade-insecure-requests
+      - traefik.http.middlewares.compress.compress=true
+      - traefik.http.routers.flectra.middlewares=flectra-headers,compress
+      - traefik.http.routers.flectra_lp.rule=Host(`flectra.bergsoemetals.com`) && PathPrefix(`/longpolling/`)
+      - traefik.http.routers.flectra_lp.entrypoints=websecure
+      - traefik.http.routers.flectra_lp.tls=true
+      - traefik.http.routers.flectra_lp.tls.certresolver=default-resolver
+      - traefik.http.routers.flectra_lp.service=flectra_lp
+      - traefik.http.services.flectra_lp.loadbalancer.server.port=7072
+      - traefik.http.routers.flectra_lp.middlewares=flectra-headers,compress
+    ports:
+      - 8000:7073  # Expose locally for dev if needed
+      - 8001:7072  # If longpolling is configured
+    networks:
+      - traefik-net
+    # command: -d flectra -i base --stop-after-init
+    # enable the command line to initialize the database; first time start up only
+
+networks:
+  traefik-net:
+    driver: bridge
